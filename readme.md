@@ -1,30 +1,43 @@
+## Architecture Flow
+
+```mermaid
 flowchart LR
-subgraph EA[External App: Festival/Event Platform]
-Admin[Admin UI: StageFlow Web]
-DB[(Database)]
-StaffApp[Staff Mobile App]
-end
 
-subgraph Nokia[Nokia Network as Code]
-Loc[Location API / Location Verification]
-Geo[Geofencing API (optional)]
-QoD[Quality on Demand API]
-end
+    %% ===== External Platform =====
+    subgraph EA["Event Platform (StageFlow)"]
+        Admin["Admin UI"]
+        DB[(Database)]
+        StaffApp["Staff Mobile App"]
+    end
 
-Admin -->|Create event, zones, roles| DB
-Admin -->|Assign users to roles/groups| DB
+    %% ===== Nokia Network as Code =====
+    subgraph Nokia["Nokia Network as Code"]
+        Loc["Location Verification API"]
+        Geo["Geofencing API (optional)"]
+        QoD["Quality on Demand API"]
+    end
 
-StaffApp -->|Login / get profile| DB
-StaffApp -->|Periodic location signal or trigger check| Admin
+    %% ===== Admin setup =====
+    Admin -->|Create events, zones, roles| DB
+    Admin -->|Assign users to roles| DB
 
-Admin -->|Verify location| Loc
-Admin -->|Optional zone membership| Geo
+    %% ===== Staff login =====
+    StaffApp -->|Login / get profile| DB
+    StaffApp -->|Trigger location check| Admin
 
-Admin -->|If user role eligible AND inside zone| QoD
-QoD -->|Priority connectivity policy applied| Telco[(Operator Network)]
+    %% ===== Location verification =====
+    Admin -->|Verify location| Loc
+    Admin -->|Check zone membership| Geo
 
-Telco --> Users[General crowd users]
-Telco --> StaffOnly[Staff users with QoD]
+    %% ===== QoD activation =====
+    Admin -->|If eligible & inside zone| QoD
+    QoD -->|Apply priority policy| Telco["Operator Network"]
 
-Admin -->|Audit logs: who/when/where| DB
-StaffApp <-->|Status: QoD ON/OFF, zone, tasks| Admin
+    %% ===== Network impact =====
+    Telco --> Crowd["General users"]
+    Telco --> Staff["Staff with Priority QoD"]
+
+    %% ===== Monitoring =====
+    Admin -->|Audit logs| DB
+    StaffApp <-->|QoD status ON/OFF| Admin
+```
