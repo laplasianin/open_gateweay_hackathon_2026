@@ -48,6 +48,9 @@ flowchart LR
 ## Architecture Flow Step 2
 ### Staff control
 
+<img width="1536" height="1024" alt="ChatGPT Image 2 мар  2026 г , 14_00_32" src="https://github.com/user-attachments/assets/fef64484-b23e-430d-bc17-6cd3e42d0d98" />
+
+
 ```mermaid
 sequenceDiagram
     participant StaffApp
