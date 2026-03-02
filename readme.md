@@ -48,6 +48,39 @@ flowchart LR
 ## Architecture Flow Step 2
 ### Staff control
 
+<img width="1536" height="1024" alt="ChatGPT Image 2 мар  2026 г , 14_00_32" src="https://github.com/user-attachments/assets/fef64484-b23e-430d-bc17-6cd3e42d0d98" />
+
+<img width="1389" height="790" alt="image" src="https://github.com/user-attachments/assets/faf45045-c62e-42e3-94ef-dce202824b15" />
+
+```mermaid
+sequenceDiagram
+    participant StaffApp
+    participant Network
+    participant Backend
+    participant RulesEngine
+    participant NotificationService
+    participant Supervisor
+
+    StaffApp->>Network: Location update
+    Network->>Backend: Location event
+    Backend->>RulesEngine: Validate zone assignment
+    RulesEngine-->>Backend: Zone violation detected
+
+    Backend->>NotificationService: Send warning to staff
+    NotificationService->>StaffApp: Out of zone alert
+
+    alt Staff returns to zone
+        StaffApp->>Network: Updated location
+        Network->>Backend: Location event
+        Backend->>RulesEngine: Revalidate
+        RulesEngine-->>Backend: Back in assigned zone
+        Backend->>NotificationService: Close incident
+    else Staff does not return
+        Backend->>NotificationService: Escalate incident
+        NotificationService->>Supervisor: Escalation alert
+    end
+```
+
 #### Scenario 1
 
 ```mermaid
@@ -71,6 +104,33 @@ H --> I[Supervisor receives alert and takes action]
 ```
 
 #### Scenario 2
+
+```mermaid
+sequenceDiagram
+    participant CrowdMonitoring
+    participant Backend
+    participant AI
+    participant NotificationService
+    participant Officer
+    participant Supervisor
+
+    CrowdMonitoring->>Backend: Increased density signal
+    Backend->>AI: Analyze crowd condition
+    AI-->>Backend: Recommend 2 additional officers
+
+    Backend->>NotificationService: Assign task to nearest officers
+    NotificationService->>Officer: Move to Sector 1
+
+    alt Officers confirm and move
+        Officer->>NotificationService: Task acknowledged
+        Officer->>Backend: Arrival confirmed
+        Backend->>AI: Update status
+        AI-->>Backend: Situation stabilizing
+    else No confirmation
+        Backend->>NotificationService: Escalate task
+        NotificationService->>Supervisor: Escalation alert
+    end
+```
    
 ```mermaid
 flowchart LR
