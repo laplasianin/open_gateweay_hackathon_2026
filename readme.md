@@ -48,6 +48,35 @@ flowchart LR
 ## Architecture Flow Step 2
 ### Staff control
 
+```mermaid
+sequenceDiagram
+    participant StaffApp
+    participant Network
+    participant Backend
+    participant RulesEngine
+    participant NotificationService
+    participant Supervisor
+
+    StaffApp->>Network: Location update
+    Network->>Backend: Location event
+    Backend->>RulesEngine: Validate zone assignment
+    RulesEngine-->>Backend: Zone violation detected
+
+    Backend->>NotificationService: Send warning to staff
+    NotificationService->>StaffApp: Out of zone alert
+
+    alt Staff returns to zone
+        StaffApp->>Network: Updated location
+        Network->>Backend: Location event
+        Backend->>RulesEngine: Revalidate
+        RulesEngine-->>Backend: Back in assigned zone
+        Backend->>NotificationService: Close incident
+    else Staff does not return
+        Backend->>NotificationService: Escalate incident
+        NotificationService->>Supervisor: Escalation alert
+    end
+```
+
 #### Scenario 1
 
 ```mermaid
@@ -71,6 +100,33 @@ H --> I[Supervisor receives alert and takes action]
 ```
 
 #### Scenario 2
+
+```mermaid
+sequenceDiagram
+    participant CrowdMonitoring
+    participant Backend
+    participant AI
+    participant NotificationService
+    participant Officer
+    participant Supervisor
+
+    CrowdMonitoring->>Backend: Increased density signal
+    Backend->>AI: Analyze crowd condition
+    AI-->>Backend: Recommend 2 additional officers
+
+    Backend->>NotificationService: Assign task to nearest officers
+    NotificationService->>Officer: Move to Sector 1
+
+    alt Officers confirm and move
+        Officer->>NotificationService: Task acknowledged
+        Officer->>Backend: Arrival confirmed
+        Backend->>AI: Update status
+        AI-->>Backend: Situation stabilizing
+    else No confirmation
+        Backend->>NotificationService: Escalate task
+        NotificationService->>Supervisor: Escalation alert
+    end
+```
    
 ```mermaid
 flowchart LR
