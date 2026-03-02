@@ -46,8 +46,53 @@ flowchart LR
 
 
 ## Architecture Flow Step 2
-1. ** Staff control
+### Staff control
 
+#### Scenario 1
+
+```mermaid
+flowchart LR
+
+A[Event is running normally] --> B[Police officer assigned to Sector 1]
+
+B --> C[Officer leaves assigned zone]
+
+C --> D[System detects out of zone movement]
+
+D --> E[Notification sent to officer]
+
+E --> F{Does the officer return}
+
+F -->|Yes| G[System confirms return and closes case]
+
+F -->|No| H[Escalation triggered]
+
+H --> I[Supervisor receives alert and takes action]
+```
+
+#### Scenario 2
+   
+```mermaid
+flowchart LR
+
+A[Event begins] --> B[People density increases in Sector 1]
+
+B --> C[System detects abnormal crowd growth]
+
+C --> D[AI analyzes situation]
+
+D --> E[Decision to send 2 police officers]
+
+E --> F[Nearest available officers receive task]
+
+F --> G{Do officers confirm}
+
+G -->|Yes| H[Officers move to Sector 1]
+
+H --> I[System verifies presence and stabilizes situation]
+
+G -->|No| J[Escalation to shift supervisor]
+```
 
 ```mermaid
 flowchart TB
