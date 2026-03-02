@@ -1,5 +1,4 @@
 ## Architecture Flow Step 1
-## Architecture Flow Step 1
 
 1. ** If the user is eligible and inside a designated zone, the Quality on Demand (QoD) API applies a priority policy on the Operator Network, impacting the network interaction for both staff and general users.
 
