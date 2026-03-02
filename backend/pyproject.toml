@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "asyncpg>=0.31.0",
     "fastapi>=0.135.1",
     "network-as-code>=8.0.0",
     "psycopg2-binary>=2.9.11",
@@ -12,6 +13,7 @@ dependencies = [
     "pydantic-settings>=2.13.1",
     "python-dotenv>=1.2.2",
     "sqlalchemy>=2.0.47",
+    "sqlmodel>=0.0.37",
     "structlog>=25.5.0",
     "uvicorn>=0.41.0",
 ]

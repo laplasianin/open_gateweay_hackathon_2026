@@ -7,6 +7,8 @@ import network_as_code as nac
 from src.config import settings
 from src.logging_config import configure_logging, get_logger
 from src.models import HealthCheckResponse, ErrorResponse
+from src.database.init import init_database
+from src.routes import roles_router, users_router, auth_router
 
 # Configure logging
 configure_logging()
@@ -20,6 +22,18 @@ def create_app() -> FastAPI:
         version=settings.app_version,
         debug=settings.debug,
     )
+
+    @app.on_event("startup")
+    def on_startup():
+        """
+        FastAPI startup event handler.
+        Initializes database connection and creates tables.
+        """
+        logger.info("application_startup")
+
+        # Initialize database and create tables
+        init_database()
+        logger.info("database_ready")
 
     @app.get("/healthcheck", response_model=HealthCheckResponse)
     async def healthcheck() -> HealthCheckResponse:
@@ -54,5 +68,14 @@ def create_app() -> FastAPI:
             },
         )
 
+    # Include API routers
+    app.include_router(auth_router)
+    app.include_router(roles_router)
+    app.include_router(users_router)
+
     return app
+
+
+# Create app instance for uvicorn
+app = create_app()
 
