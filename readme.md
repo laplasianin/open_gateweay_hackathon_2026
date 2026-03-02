@@ -43,3 +43,86 @@ flowchart LR
     Admin -->|Audit logs| DB
     StaffApp <-->|QoD status ON/OFF| Admin
 ```
+
+
+## Architecture Flow Step 2
+1. ** Staff control
+
+
+```mermaid
+flowchart TB
+
+%% =========================
+%% Admin Configuration
+%% =========================
+subgraph Admin["Admin & Configuration"]
+    AP["Admin Panel<br/>- Zones editor<br/>- Roles & Groups<br/>- Rules: where/when/what<br/>- Manual override tasks"]
+    RDB[("Rules DB<br/>zones, roles, schedules,<br/>actions, escalation")]
+    AP -->|CRUD rules| RDB
+end
+
+%% =========================
+%% Nokia Network APIs
+%% =========================
+subgraph Nokia["Nokia Network APIs"]
+    LOC["Location / Geofencing"]
+    PRES["Device online/offline (presence)"]
+    LVER["Location verification"]
+    QOD["QoD Priority (optional)"]
+    QOE["Throughput / QoE signals (optional)"]
+end
+
+%% =========================
+%% Backend Real-time Layer
+%% =========================
+subgraph Backend["Real-time Processing (Python Backend)"]
+    SUB["Location Stream Subscriber<br/>(webhook / poll)<br/>normalize events"]
+    RULES["Rules Engine<br/>(role + time + zone)<br/>-> expected state<br/>-> violations"]
+    AI["AI Decision Agent<br/>crowd / risk analysis<br/>recommendations<br/>escalation"]
+    NOTIF["Notification Service<br/>push / SMS / voice<br/>ack / retry<br/>escalation chain"]
+    AUD[("Audit Log / Analytics<br/>incidents<br/>KPIs<br/>heatmaps")]
+end
+
+%% =========================
+%% Staff Side
+%% =========================
+subgraph Field["Field Execution"]
+    APP["Staff Mobile App<br/>login / role<br/>receive tasks<br/>ack / complete"]
+    SUP["Shift Supervisor<br/>(escalation target)"]
+end
+
+%% =========================
+%% Data Flow
+%% =========================
+
+%% Nokia -> Backend
+LOC -->|location events| SUB
+PRES -->|presence events| SUB
+LVER -->|verify in-zone| RULES
+QOE -->|network signals| AI
+
+%% Rules loading
+RDB -->|load active rules| RULES
+
+%% Processing pipeline
+SUB -->|normalized events| RULES
+RULES -->|violations / tasks| AI
+RULES -->|simple violations| NOTIF
+AI -->|decisions: move staff / open gates| NOTIF
+
+%% Notification loop
+NOTIF -->|push task / warning| APP
+APP -->|ack + status| NOTIF
+APP -->|confirm arrival via geofence| RULES
+
+%% Escalation & QoD
+NOTIF -->|no-ack / SLA breach| SUP
+AI -->|optional: enable QoD| QOD
+
+%% Logging
+SUB --> AUD
+RULES --> AUD
+AI --> AUD
+NOTIF --> AUD
+APP --> AUD
+```
