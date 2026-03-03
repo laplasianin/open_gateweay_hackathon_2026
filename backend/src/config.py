@@ -1,5 +1,6 @@
 """Application configuration."""
 from pydantic_settings import BaseSettings
+from pydantic import Field
 from typing import Optional
 
 
@@ -16,8 +17,7 @@ class Settings(BaseSettings):
     database_echo: bool = False
 
     # Nokia Network as Code
-    nac_client_id: Optional[str] = None
-    nac_client_secret: Optional[str] = None
+    nac_token: Optional[str] = Field(default=None, alias="nac_client_token")
 
     # Server
     host: str = "0.0.0.0"
@@ -28,6 +28,7 @@ class Settings(BaseSettings):
 
         env_file = ".env"
         case_sensitive = False
+        populate_by_name = True
 
 
 settings = Settings()

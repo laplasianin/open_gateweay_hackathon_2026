@@ -1,14 +1,16 @@
 """FastAPI application factory."""
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from datetime import datetime
 import network_as_code as nac
+from pathlib import Path
 
 from src.config import settings
 from src.logging_config import configure_logging, get_logger
 from src.models import HealthCheckResponse, ErrorResponse
 from src.database.init import init_database
-from src.routes import roles_router, users_router, auth_router
+from src.nac_client import initialize_devices, subscribe_to_geofencing
+from src.routes import roles_router, users_router, auth_router, ws_router, webhooks_router
 
 # Configure logging
 configure_logging()
@@ -27,7 +29,7 @@ def create_app() -> FastAPI:
     def on_startup():
         """
         FastAPI startup event handler.
-        Initializes database connection and creates tables.
+        Initializes database connection, creates tables, and loads NAC devices.
         """
         logger.info("application_startup")
 
@@ -35,11 +37,28 @@ def create_app() -> FastAPI:
         init_database()
         logger.info("database_ready")
 
+        # Initialize NAC devices
+        try:
+            initialize_devices()
+            logger.info("nac_devices_ready")
+
+            # Subscribe devices to geofencing
+            subscribe_to_geofencing()
+            logger.info("nac_geofencing_subscriptions_ready")
+        except Exception as e:
+            logger.warning("nac_initialization_failed", error=str(e))
+
+    @app.get("/emergency-ui")
+    async def emergency_ui():
+        """Serve emergency button UI page."""
+        html_file = Path(__file__).parent / "static" / "emergency.html"
+        return FileResponse(html_file, media_type="text/html")
+
     @app.get("/healthcheck", response_model=HealthCheckResponse)
     async def healthcheck() -> HealthCheckResponse:
         """
         Health check endpoint.
-        
+
         Returns application status, version, and database connectivity.
         """
         logger.info("healthcheck_request")
@@ -72,6 +91,8 @@ def create_app() -> FastAPI:
     app.include_router(auth_router)
     app.include_router(roles_router)
     app.include_router(users_router)
+    app.include_router(ws_router)
+    app.include_router(webhooks_router)
 
     return app
 

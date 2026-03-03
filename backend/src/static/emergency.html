@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emergency Button</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 30px;
+        }
+
+        .emergency-button {
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%);
+            border: none;
+            cursor: pointer;
+            font-size: 48px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 10px 40px rgba(255, 0, 0, 0.4), inset 0 -4px 8px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .emergency-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 15px 50px rgba(255, 0, 0, 0.6), inset 0 -4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .emergency-button:active {
+            transform: scale(0.98);
+            box-shadow: 0 5px 20px rgba(255, 0, 0, 0.4), inset 0 -2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .status {
+            font-size: 18px;
+            color: #888;
+            min-height: 24px;
+        }
+
+        .status.success {
+            color: #4ade80;
+        }
+
+        .status.error {
+            color: #ff6b6b;
+        }
+
+        .status.loading {
+            color: #fbbf24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <form id="emergencyForm">
+            <button type="submit" class="emergency-button">EMERGENCY</button>
+        </form>
+        <div class="status" id="status"></div>
+    </div>
+
+    <script>
+        const form = document.getElementById('emergencyForm');
+        const statusDiv = document.getElementById('status');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            statusDiv.textContent = 'Sending...';
+            statusDiv.className = 'status loading';
+
+            try {
+                const response = await fetch('/emergency', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        timestamp: new Date().toISOString(),
+                    }),
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    statusDiv.textContent = '✓ Emergency alert sent!';
+                    statusDiv.className = 'status success';
+                } else {
+                    statusDiv.textContent = '✗ Error sending alert';
+                    statusDiv.className = 'status error';
+                }
+            } catch (error) {
+                statusDiv.textContent = '✗ Connection error';
+                statusDiv.className = 'status error';
+                console.error('Error:', error);
+            }
+
+            // Clear status after 3 seconds
+            setTimeout(() => {
+                statusDiv.textContent = '';
+                statusDiv.className = 'status';
+            }, 3000);
+        });
+    </script>
+</body>
+</html>
+
