@@ -16,6 +16,8 @@ export const api = {
   getVisitors: (eventId: string) => fetchJson<import("../types").Visitor[]>(`/events/${eventId}/visitors`),
   startSimulation: (eventId: string) => fetchJson(`/simulation/start/${eventId}`, { method: "POST" }),
   stopSimulation: (eventId: string) => fetchJson(`/simulation/stop/${eventId}`, { method: "POST" }),
+  resetSimulation: (eventId: string) => fetchJson(`/simulation/reset/${eventId}`, { method: "POST" }),
+  simulationStatus: (eventId: string) => fetchJson<{ running: boolean }>(`/simulation/status/${eventId}`),
   triggerSos: (visitorId: string, lat: number, lng: number) =>
     fetchJson<import("../types").Incident>("/emergency/sos", {
       method: "POST",
@@ -25,4 +27,6 @@ export const api = {
     fetchJson<import("../types").Incident>(`/emergency/${incidentId}/resolve`, { method: "POST" }),
   getActiveIncident: (staffId: string) =>
     fetchJson<import("../types").Incident | null>(`/emergency/active/${staffId}`),
+  getEventIncidents: (eventId: string) =>
+    fetchJson<import("../types").Incident[]>(`/emergency/event/${eventId}`),
 };

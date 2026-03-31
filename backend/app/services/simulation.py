@@ -48,6 +48,12 @@ def dispatch_medic_to_incident(staff_id: str, lat: float, lng: float, incident_i
 def interpolate_position(waypoints: list[dict], elapsed: float) -> tuple[float, float]:
     if not waypoints:
         return (0.0, 0.0)
+
+    # Loop: total duration is last waypoint offset
+    total_duration = waypoints[-1]["offset"]
+    if total_duration > 0 and elapsed > total_duration:
+        elapsed = elapsed % total_duration
+
     if elapsed <= waypoints[0]["offset"]:
         return (waypoints[0]["lat"], waypoints[0]["lng"])
     for i in range(len(waypoints) - 1):
@@ -218,9 +224,39 @@ async def _run_simulation(event_id: str):
         await asyncio.sleep(2)
 
 
+async def _reset_entities(event_id: str):
+    """Reset all positions, QoD statuses, and incidents for a fresh simulation run."""
+    async with async_session() as db:
+        # Reset staff
+        result = await db.execute(select(Staff).where(Staff.event_id == event_id))
+        for s in result.scalars().all():
+            s.current_lat = None
+            s.current_lng = None
+            s.current_zone_id = None
+            s.qod_status = "inactive"
+            s.qod_session_id = None
+        # Reset visitors
+        result = await db.execute(select(Visitor).where(Visitor.event_id == event_id))
+        for v in result.scalars().all():
+            v.current_lat = None
+            v.current_lng = None
+            v.current_zone_id = None
+            v.qod_status = "inactive"
+            v.qod_session_id = None
+        # Reset zones crowd level
+        result = await db.execute(select(Zone).where(Zone.event_id == event_id))
+        for z in result.scalars().all():
+            z.crowd_level = "low"
+        await db.commit()
+    # Clear medic overrides
+    _medic_overrides.clear()
+
+
 async def start_simulation(event_id: str):
     if event_id in _tasks and not _tasks[event_id].done():
-        return
+        # Stop existing first
+        await stop_simulation(event_id)
+    await _reset_entities(event_id)
     _tasks[event_id] = asyncio.create_task(_run_simulation(event_id))
 
 

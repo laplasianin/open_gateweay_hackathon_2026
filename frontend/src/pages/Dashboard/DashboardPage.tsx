@@ -3,14 +3,18 @@ import { api } from "../../api/client";
 import { useEvents } from "../../hooks/useEvents";
 import { useWebSocket } from "../../hooks/useWebSocket";
 import type { Event, Staff, Visitor, Incident } from "../../types";
+import { Logo } from "../../components/Logo";
 import { EventSelector } from "./EventSelector";
 import { SimControls } from "./SimControls";
 import { EventMap } from "./EventMap";
 import { StaffPanel } from "./StaffPanel";
 import { EventLog } from "./EventLog";
+import { AiPanel } from "./AiPanel";
+import { HelpModal } from "./HelpModal";
 
 export function DashboardPage() {
   const { events, loading } = useEvents();
+  const [helpOpen, setHelpOpen] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [event, setEvent] = useState<Event | null>(null);
   const [staff, setStaff] = useState<Staff[]>([]);
@@ -24,8 +28,12 @@ export function DashboardPage() {
 
   useEffect(() => {
     if (!selectedEventId) return;
-    Promise.all([api.getEvent(selectedEventId), api.getStaff(selectedEventId), api.getVisitors(selectedEventId)])
-      .then(([ev, st, vis]) => { setEvent(ev); setStaff(st); setVisitors(vis); setIncidents([]); });
+    Promise.all([
+      api.getEvent(selectedEventId),
+      api.getStaff(selectedEventId),
+      api.getVisitors(selectedEventId),
+      api.getEventIncidents(selectedEventId),
+    ]).then(([ev, st, vis, inc]) => { setEvent(ev); setStaff(st); setVisitors(vis); setIncidents(inc); });
   }, [selectedEventId]);
 
   useEffect(() => {
@@ -55,18 +63,24 @@ export function DashboardPage() {
 
   return (
     <div className="bg-gray-900 min-h-screen text-white">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
-        <h1 className="text-xl font-bold">StageFlow</h1>
+      <div className="flex items-center justify-between px-6 py-3 border-b border-gray-700">
+        <Logo />
         <div className="flex items-center gap-4">
           <EventSelector events={events} selectedId={selectedEventId} onSelect={setSelectedEventId} />
           {selectedEventId && <SimControls eventId={selectedEventId} />}
-          <span className={`text-xs ${connected ? "text-green-400" : "text-red-400"}`}>{connected ? "Live" : "Disconnected"}</span>
+          <div className="flex items-center gap-1.5">
+            <span className={`w-2 h-2 rounded-full ${connected ? "bg-green-400 animate-pulse" : "bg-red-400"}`} />
+            <span className={`text-xs ${connected ? "text-green-400" : "text-red-400"}`}>{connected ? "Live" : "Disconnected"}</span>
+          </div>
+          <button onClick={() => setHelpOpen(true)} className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded text-sm">Help</button>
         </div>
       </div>
-      <div className="flex h-[calc(100vh-73px)]">
+      <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
+      <div className="flex h-[calc(100vh-65px)]">
         <div className="flex-1 p-4">{event && <EventMap event={event} staff={staff} visitors={visitors} incidents={incidents} />}</div>
         <div className="w-80 p-4 space-y-4 overflow-y-auto border-l border-gray-700">
           <StaffPanel staff={staff} visitors={visitors} eventId={selectedEventId ?? ""} />
+          <AiPanel logs={logs} />
           <EventLog logs={logs} />
         </div>
       </div>

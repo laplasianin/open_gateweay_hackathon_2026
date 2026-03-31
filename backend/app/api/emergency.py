@@ -19,6 +19,16 @@ async def trigger_sos(request: SosRequest, db: AsyncSession = Depends(get_db)):
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
+@router.get("/event/{event_id}", response_model=list[IncidentResponse])
+async def get_event_incidents(event_id: UUID, db: AsyncSession = Depends(get_db)):
+    from sqlalchemy import select
+    from app.models.incident import Incident
+    result = await db.execute(
+        select(Incident).where(Incident.event_id == event_id, Incident.status != "resolved")
+    )
+    return result.scalars().all()
+
+
 @router.get("/active/{staff_id}", response_model=IncidentResponse | None)
 async def get_active_incident(staff_id: UUID, db: AsyncSession = Depends(get_db)):
     from sqlalchemy import select
