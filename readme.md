@@ -1,233 +1,223 @@
-## Architecture Flow Step 1
+# StageFlow
 
-1. ** If the user is eligible and inside a designated zone, the Quality on Demand (QoD) API applies a priority policy on the Operator Network, impacting the network interaction for both staff and general users.
+Network-Aware Event Orchestration Platform. Built on Nokia Network APIs.
 
-```mermaid
-flowchart LR
+Demo for Nokia / T-Mobile — manages priority network access for staff and VIP at mass events, tracks crowd density, coordinates emergency medical response.
 
-    %% ===== External Platform =====
-    subgraph EA["Event Platform (StageFlow)"]
-        Admin["Admin UI"]
-        DB[(Database)]
-        StaffApp["Staff Mobile App"]
-    end
+## What's Built
 
-    %% ===== Nokia Network as Code =====
-    subgraph Nokia["Nokia Network as Code"]
-        Loc["Location Verification API"]
-        Geo["Geofencing API (optional)"]
-        QoD["Quality on Demand API"]
-    end
+### Backend (Python / FastAPI)
 
-    %% ===== Admin setup =====
-    Admin -->|Create events, zones, roles| DB
-    Admin -->|Assign users to roles| DB
+- **REST API** — events, zones, staff, visitors, incidents
+- **WebSocket** — real-time updates (positions, QoD statuses, crowd levels, incidents)
+- **Simulation Engine** — moves staff/visitors along scripted paths, triggers QoD on zone enter/exit, fakes crowd density
+- **Nokia QoD Integration** — mock client (returns fake sessions) + real client stub (plug in API keys when available)
+- **Emergency SOS** — finds nearest medic, activates QoD boost, broadcasts incident
+- **Seed Data** — two pre-populated events with zones, staff, visitors, and movement paths
 
-    %% ===== Staff login =====
-    StaffApp -->|Login / get profile| DB
-    StaffApp -->|Trigger location check| Admin
+### Frontend (React / TypeScript / Vite)
 
-    %% ===== Location verification =====
-    Admin -->|Verify location| Loc
-    Admin -->|Check zone membership| Geo
+- **Dashboard** (`/dashboard`) — Leaflet map with colored zones, moving staff/visitor markers, staff panel with QoD badges, scrolling event log, simulation controls, event selector
+- **Staff View** (`/staff`) — mobile-optimized view showing network status, role, emergency alerts
+- **Visitor View** (`/visitor`) — mobile-optimized view with QoD boost status and SOS button
 
-    %% ===== QoD activation =====
-    Admin -->|If eligible & inside zone| QoD
-    QoD -->|Apply priority policy| Telco["Operator Network"]
+### Infrastructure
 
-    %% ===== Network impact =====
-    Telco --> Crowd["General users"]
-    Telco --> Staff["Staff with Priority QoD"]
+- Docker Compose for local dev (PostgreSQL + backend + frontend)
+- Dockerfiles for Railway deployment
+- Nginx reverse proxy for /api and /ws
 
-    %% ===== Monitoring =====
-    Admin -->|Audit logs| DB
-    StaffApp <-->|QoD status ON/OFF| Admin
+## Pre-seeded Events
+
+| Event | Location | Zones | Staff | Visitors |
+|-------|----------|-------|-------|----------|
+| Primeweaver Sound 2026 | Barcelona, Fira Barcelona | 12 (2 main stages, 5 medium, food court, entrance, exit, VIP, medical) | 5 (security, medical, logistics, operations, comms) | 2 (VIP + regular) |
+| World Cup 2026 | Mexico City, Estadio Azteca | 10 (4 stands, VIP box, pitch perimeter, 2 entrances, medical, media) | 4 (security, medical, operations, comms) | 2 (VIP + regular) |
+
+## Quick Start
+
+### Prerequisites
+
+- Docker and Docker Compose
+- Node.js 20+ (for frontend dev)
+- Python 3.12+ (for backend dev)
+
+### Run with Docker (recommended)
+
+```bash
+docker-compose up --build
 ```
 
+This starts:
+- PostgreSQL + PostGIS on port 5432
+- Backend (FastAPI) on port 8000
+- Frontend (Nginx) on port 3000
 
-## Architecture Flow Step 2
-### Staff control
+Open http://localhost:3000 — the dashboard loads with pre-seeded data.
 
-<img width="1536" height="1024" alt="ChatGPT Image 2 мар  2026 г , 14_00_32" src="https://github.com/user-attachments/assets/fef64484-b23e-430d-bc17-6cd3e42d0d98" />
+### Run without Docker (development)
 
-<img width="1389" height="790" alt="image" src="https://github.com/user-attachments/assets/faf45045-c62e-42e3-94ef-dce202824b15" />
-
-```mermaid
-sequenceDiagram
-    participant StaffApp
-    participant Network
-    participant Backend
-    participant RulesEngine
-    participant NotificationService
-    participant Supervisor
-
-    StaffApp->>Network: Location update
-    Network->>Backend: Location event
-    Backend->>RulesEngine: Validate zone assignment
-    RulesEngine-->>Backend: Zone violation detected
-
-    Backend->>NotificationService: Send warning to staff
-    NotificationService->>StaffApp: Out of zone alert
-
-    alt Staff returns to zone
-        StaffApp->>Network: Updated location
-        Network->>Backend: Location event
-        Backend->>RulesEngine: Revalidate
-        RulesEngine-->>Backend: Back in assigned zone
-        Backend->>NotificationService: Close incident
-    else Staff does not return
-        Backend->>NotificationService: Escalate incident
-        NotificationService->>Supervisor: Escalation alert
-    end
+**Terminal 1 — Database:**
+```bash
+docker run -d --name stageflow-db \
+  -e POSTGRES_USER=stageflow \
+  -e POSTGRES_PASSWORD=stageflow \
+  -e POSTGRES_DB=stageflow \
+  -p 5432:5432 \
+  postgis/postgis:16-3.4
 ```
 
-#### Scenario 1
-
-```mermaid
-flowchart LR
-
-A[Event is running normally] --> B[Police officer assigned to Sector 1]
-
-B --> C[Officer leaves assigned zone]
-
-C --> D[System detects out of zone movement]
-
-D --> E[Notification sent to officer]
-
-E --> F{Does the officer return}
-
-F -->|Yes| G[System confirms return and closes case]
-
-F -->|No| H[Escalation triggered]
-
-H --> I[Supervisor receives alert and takes action]
+**Terminal 2 — Backend:**
+```bash
+cd backend
+pip install -r requirements.txt
+DATABASE_URL=postgresql+asyncpg://stageflow:stageflow@localhost:5432/stageflow \
+  uvicorn app.main:app --reload --port 8000
 ```
 
-#### Scenario 2
-
-```mermaid
-sequenceDiagram
-    participant CrowdMonitoring
-    participant Backend
-    participant AI
-    participant NotificationService
-    participant Officer
-    participant Supervisor
-
-    CrowdMonitoring->>Backend: Increased density signal
-    Backend->>AI: Analyze crowd condition
-    AI-->>Backend: Recommend 2 additional officers
-
-    Backend->>NotificationService: Assign task to nearest officers
-    NotificationService->>Officer: Move to Sector 1
-
-    alt Officers confirm and move
-        Officer->>NotificationService: Task acknowledged
-        Officer->>Backend: Arrival confirmed
-        Backend->>AI: Update status
-        AI-->>Backend: Situation stabilizing
-    else No confirmation
-        Backend->>NotificationService: Escalate task
-        NotificationService->>Supervisor: Escalation alert
-    end
-```
-   
-```mermaid
-flowchart LR
-
-A[Event begins] --> B[People density increases in Sector 1]
-
-B --> C[System detects abnormal crowd growth]
-
-C --> D[AI analyzes situation]
-
-D --> E[Decision to send 2 police officers]
-
-E --> F[Nearest available officers receive task]
-
-F --> G{Do officers confirm}
-
-G -->|Yes| H[Officers move to Sector 1]
-
-H --> I[System verifies presence and stabilizes situation]
-
-G -->|No| J[Escalation to shift supervisor]
+**Terminal 3 — Frontend:**
+```bash
+cd frontend
+npm install
+npm run dev
 ```
 
-```mermaid
-flowchart TB
+Open http://localhost:3000
 
-%% =========================
-%% Admin Configuration
-%% =========================
-subgraph Admin["Admin & Configuration"]
-    AP["Admin Panel<br/>- Zones editor<br/>- Roles & Groups<br/>- Rules: where/when/what<br/>- Manual override tasks"]
-    RDB[("Rules DB<br/>zones, roles, schedules,<br/>actions, escalation")]
-    AP -->|CRUD rules| RDB
-end
+## How to Test the Demo
 
-%% =========================
-%% Nokia Network APIs
-%% =========================
-subgraph Nokia["Nokia Network APIs"]
-    LOC["Location / Geofencing"]
-    PRES["Device online/offline (presence)"]
-    LVER["Location verification"]
-    QOD["QoD Priority (optional)"]
-    QOE["Throughput / QoE signals (optional)"]
-end
+### 1. Dashboard
 
-%% =========================
-%% Backend Real-time Layer
-%% =========================
-subgraph Backend["Real-time Processing (Python Backend)"]
-    SUB["Location Stream Subscriber<br/>(webhook / poll)<br/>normalize events"]
-    RULES["Rules Engine<br/>(role + time + zone)<br/>-> expected state<br/>-> violations"]
-    AI["AI Decision Agent<br/>crowd / risk analysis<br/>recommendations<br/>escalation"]
-    NOTIF["Notification Service<br/>push / SMS / voice<br/>ack / retry<br/>escalation chain"]
-    AUD[("Audit Log / Analytics<br/>incidents<br/>KPIs<br/>heatmaps")]
-end
+1. Open http://localhost:3000
+2. The Primeweaver Sound 2026 event is selected by default
+3. You see a map of Barcelona with 12 colored zones
+4. Staff panel on the right shows 5 staff members + 2 visitors, all "Normal"
 
-%% =========================
-%% Staff Side
-%% =========================
-subgraph Field["Field Execution"]
-    APP["Staff Mobile App<br/>login / role<br/>receive tasks<br/>ack / complete"]
-    SUP["Shift Supervisor<br/>(escalation target)"]
-end
+### 2. Start Simulation
 
-%% =========================
-%% Data Flow
-%% =========================
+1. Click **"Start Simulation"**
+2. Watch markers move on the map every 2 seconds
+3. Event log fills with entries:
+   - "QoD activated for Juan Garcia (entered Main Stage A)"
+   - "QoD activated for Anna Berg (entered VIP Area)"
+4. Staff panel badges change to "Priority Active" (green)
+5. When staff exits a zone, QoD is deactivated automatically
 
-%% Nokia -> Backend
-LOC -->|location events| SUB
-PRES -->|presence events| SUB
-LVER -->|verify in-zone| RULES
-QOE -->|network signals| AI
+### 3. Crowd Density (faked)
 
-%% Rules loading
-RDB -->|load active rules| RULES
+- At ~30 seconds: Main Stage A turns orange ("HIGH")
+- At ~45 seconds: Main Stage A turns red ("CRITICAL")
+- Event log shows: "AI Alert: Main Stage A crowd density CRITICAL"
 
-%% Processing pipeline
-SUB -->|normalized events| RULES
-RULES -->|violations / tasks| AI
-RULES -->|simple violations| NOTIF
-AI -->|decisions: move staff / open gates| NOTIF
+### 4. SOS Emergency
 
-%% Notification loop
-NOTIF -->|push task / warning| APP
-APP -->|ack + status| NOTIF
-APP -->|confirm arrival via geofence| RULES
+1. Open a new tab: http://localhost:3000/visitor?event=EVENT_ID&id=VISITOR_ID
+   (Get IDs from the API: http://localhost:8000/api/events then /api/events/{id}/visitors)
+2. Press the red **"SOS Emergency"** button
+3. On the dashboard:
+   - Red SOS marker appears on the map
+   - Dashed line from medic to patient
+   - Event log: "SOS received! Nearest medic dispatched (Xm away)"
+4. Medic gets QoD boost automatically
 
-%% Escalation & QoD
-NOTIF -->|no-ack / SLA breach| SUP
-AI -->|optional: enable QoD| QOD
+### 5. Staff Mobile View
 
-%% Logging
-SUB --> AUD
-RULES --> AUD
-AI --> AUD
-NOTIF --> AUD
-APP --> AUD
+1. Open http://localhost:3000/staff?event=EVENT_ID&id=STAFF_ID
+2. Shows staff name, role, and network status
+3. Updates in real-time via WebSocket — "Priority Active" when in zone
+4. Medics see emergency alert when SOS is triggered
+
+### 6. Switch Event
+
+1. Use the dropdown in the top bar to switch to "World Cup 2026"
+2. Map redraws with Estadio Azteca zones in Mexico City
+3. Different staff and zones — same platform
+
+## API Endpoints
+
 ```
+GET  /api/health                    — Health check
+GET  /api/events                    — List all events
+GET  /api/events/{id}               — Event detail with zones
+GET  /api/events/{id}/staff         — Staff for event
+GET  /api/events/{id}/visitors      — Visitors for event
+POST /api/simulation/start/{id}     — Start simulation
+POST /api/simulation/stop/{id}      — Stop simulation
+POST /api/emergency/sos             — Trigger SOS {visitor_id, lat, lng}
+POST /api/emergency/{id}/resolve    — Resolve incident
+WS   /ws/events/{id}                — Real-time updates
+```
+
+## Nokia API Mode
+
+Controlled by environment variable:
+
+```bash
+NOKIA_MODE=mock    # Default. Returns fake session IDs, logs calls.
+NOKIA_MODE=real    # Uses Nokia Network as Code SDK. Requires API keys.
+```
+
+When Nokia provides API credentials, set:
+```bash
+NOKIA_MODE=real
+NOKIA_API_KEY=your-key
+NOKIA_API_SECRET=your-secret
+```
+
+No code changes needed — just environment variables.
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Backend | Python 3.12, FastAPI, SQLAlchemy 2.0, asyncio, Shapely |
+| Frontend | React 18, TypeScript, Vite, Leaflet, Tailwind CSS |
+| Database | PostgreSQL 16 + PostGIS |
+| Infrastructure | Docker, Docker Compose, Nginx |
+| Deployment | Railway |
+
+## Project Structure
+
+```
+hackathon_2026/
+├── backend/
+│   ├── app/
+│   │   ├── api/          # REST + WebSocket endpoints
+│   │   ├── models/       # SQLAlchemy models
+│   │   ├── schemas/      # Pydantic request/response schemas
+│   │   ├── services/     # Business logic (simulation, geofence, emergency, QoD)
+│   │   ├── nokia/        # Nokia API client (mock + real)
+│   │   ├── main.py       # FastAPI app
+│   │   ├── config.py     # Settings
+│   │   ├── database.py   # DB connection
+│   │   └── seed.py       # Pre-populate demo data
+│   ├── tests/
+│   ├── Dockerfile
+│   └── requirements.txt
+├── frontend/
+│   ├── src/
+│   │   ├── api/          # REST client
+│   │   ├── hooks/        # useWebSocket, useEvents
+│   │   ├── components/   # QodBadge, SosButton
+│   │   ├── pages/
+│   │   │   ├── Dashboard/  # Map, panels, controls
+│   │   │   ├── Staff/      # Mobile staff view
+│   │   │   └── Visitor/    # Mobile visitor view
+│   │   └── types/        # TypeScript interfaces
+│   ├── Dockerfile
+│   ├── nginx.conf
+│   └── package.json
+├── docker-compose.yml
+└── docs/
+    ├── deployment.md
+    └── stageflow-demo-flows-ru.md
+```
+
+## Running Tests
+
+```bash
+cd backend
+python -m pytest tests/ -v
+```
+
+Tests cover: geofence (point-in-polygon), Nokia mock client, emergency (nearest medic), simulation (waypoint interpolation).
