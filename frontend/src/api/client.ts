@@ -23,4 +23,6 @@ export const api = {
     }),
   resolveIncident: (incidentId: string) =>
     fetchJson<import("../types").Incident>(`/emergency/${incidentId}/resolve`, { method: "POST" }),
+  getActiveIncident: (staffId: string) =>
+    fetchJson<import("../types").Incident | null>(`/emergency/active/${staffId}`),
 };

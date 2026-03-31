@@ -1,4 +1,5 @@
 import asyncio
+import math
 from datetime import datetime, timezone
 
 from sqlalchemy import select
@@ -6,12 +7,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import async_session
 from app.models.event import Zone
+from app.models.incident import Incident
 from app.models.simulation_path import SimulationPath
 from app.models.staff import Staff
 from app.models.visitor import Visitor
 from app.services.geofence import find_zone
 from app.services.qod import activate_qod, deactivate_qod
 from app.services.ws_manager import ws_manager
+
+# Medic override targets: {staff_id_str: {"lat": float, "lng": float, "incident_id": str}}
+_medic_overrides: dict[str, dict] = {}
+
+MEDIC_SPEED = 0.0001  # ~11m per tick in lat/lng degrees
+RESOLVE_DISTANCE_M = 20
 
 _tasks: dict[str, asyncio.Task] = {}
 _running: dict[str, bool] = {}
@@ -21,6 +29,20 @@ CROWD_SCRIPT = {
     45: {"Main Stage A": "critical"},
     60: {"Medium Stage 1": "high"},
 }
+
+
+def _haversine(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    R = 6371000
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lng2 - lng1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def dispatch_medic_to_incident(staff_id: str, lat: float, lng: float, incident_id: str):
+    """Called from emergency service to redirect a medic toward an SOS location."""
+    _medic_overrides[staff_id] = {"lat": lat, "lng": lng, "incident_id": incident_id}
 
 
 def interpolate_position(waypoints: list[dict], elapsed: float) -> tuple[float, float]:
@@ -51,6 +73,10 @@ async def _tick(event_id: str, elapsed: float, db: AsyncSession):
     paths = path_result.scalars().all()
 
     for path in paths:
+        # Skip scripted path if medic is dispatched to SOS
+        if path.entity_type == "staff" and str(path.entity_id) in _medic_overrides:
+            continue
+
         lat, lng = interpolate_position(path.waypoints, elapsed)
 
         if path.entity_type == "staff":
@@ -114,6 +140,49 @@ async def _tick(event_id: str, elapsed: float, db: AsyncSession):
                 "zone_id": new_zone_id,
             },
         })
+
+    # Move medics toward SOS and auto-resolve
+    for staff_id, target in list(_medic_overrides.items()):
+        medic = await db.get(Staff, staff_id)
+        if medic is None or medic.current_lat is None:
+            continue
+
+        dist = _haversine(medic.current_lat, medic.current_lng, target["lat"], target["lng"])
+
+        if dist <= RESOLVE_DISTANCE_M:
+            # Auto-resolve incident
+            incident = await db.get(Incident, target["incident_id"])
+            if incident and incident.status != "resolved":
+                incident.status = "resolved"
+                incident.resolved_at = datetime.now(timezone.utc)
+                await ws_manager.broadcast(event_id, {
+                    "type": "incident",
+                    "data": {"id": str(incident.id), "status": "resolved"},
+                })
+                await ws_manager.broadcast(event_id, {
+                    "type": "log",
+                    "data": {"message": f"Medic {medic.name} reached patient — incident resolved", "level": "success"},
+                })
+            del _medic_overrides[staff_id]
+        else:
+            # Move medic toward target
+            dlat = target["lat"] - medic.current_lat
+            dlng = target["lng"] - medic.current_lng
+            length = math.sqrt(dlat ** 2 + dlng ** 2)
+            if length > 0:
+                medic.current_lat += (dlat / length) * MEDIC_SPEED
+                medic.current_lng += (dlng / length) * MEDIC_SPEED
+
+                await ws_manager.broadcast(event_id, {
+                    "type": "position_update",
+                    "data": {
+                        "entity_id": str(medic.id),
+                        "entity_type": "staff",
+                        "lat": medic.current_lat,
+                        "lng": medic.current_lng,
+                        "zone_id": str(medic.current_zone_id) if medic.current_zone_id else None,
+                    },
+                })
 
     # Fake crowd levels
     elapsed_int = int(elapsed)

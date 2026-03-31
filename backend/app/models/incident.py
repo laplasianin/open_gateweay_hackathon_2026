@@ -18,5 +18,5 @@ class Incident(Base):
     responder_id = Column(UUID(as_uuid=True), ForeignKey("staff.id"), nullable=True)
     lat = Column(Float, nullable=False)
     lng = Column(Float, nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    resolved_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    resolved_at = Column(DateTime(timezone=True), nullable=True)

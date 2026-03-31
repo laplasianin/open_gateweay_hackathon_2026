@@ -66,6 +66,20 @@ async def handle_sos(db: AsyncSession, request: SosRequest) -> Incident:
     await db.commit()
     await db.refresh(incident)
 
+    # Redirect medic toward SOS location in simulation
+    if medic_dict:
+        from app.services.simulation import dispatch_medic_to_incident
+        dispatch_medic_to_incident(medic_dict["id"], request.lat, request.lng, str(incident.id))
+
+    # Find nearest zone name for context
+    from app.models.event import Zone
+    from app.services.geofence import find_zone as _find_zone
+    zone_result = await db.execute(select(Zone).where(Zone.event_id == visitor.event_id))
+    all_zones = zone_result.scalars().all()
+    zone_dicts = [{"id": str(z.id), "name": z.name, "polygon": z.polygon} for z in all_zones]
+    zone_id = _find_zone(request.lat, request.lng, zone_dicts)
+    zone_name = next((z.name for z in all_zones if str(z.id) == zone_id), "Open area") if zone_id else "Open area"
+
     # Broadcast
     dist = _distance(request.lat, request.lng, medic_dict["current_lat"], medic_dict["current_lng"]) if medic_dict else None
     await ws_manager.broadcast(
@@ -79,6 +93,7 @@ async def handle_sos(db: AsyncSession, request: SosRequest) -> Incident:
                 "status": incident.status,
                 "responder_id": str(incident.responder_id) if incident.responder_id else None,
                 "distance_meters": round(dist) if dist else None,
+                "zone_name": zone_name,
             },
         },
     )

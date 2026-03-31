@@ -66,7 +66,7 @@ export function DashboardPage() {
       <div className="flex h-[calc(100vh-73px)]">
         <div className="flex-1 p-4">{event && <EventMap event={event} staff={staff} visitors={visitors} incidents={incidents} />}</div>
         <div className="w-80 p-4 space-y-4 overflow-y-auto border-l border-gray-700">
-          <StaffPanel staff={staff} visitors={visitors} />
+          <StaffPanel staff={staff} visitors={visitors} eventId={selectedEventId ?? ""} />
           <EventLog logs={logs} />
         </div>
       </div>
