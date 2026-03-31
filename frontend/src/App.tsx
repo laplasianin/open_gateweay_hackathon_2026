@@ -1,25 +1,16 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-
-function Dashboard() {
-  return <div className="p-4 text-white bg-gray-900 min-h-screen">Dashboard</div>;
-}
-
-function Staff() {
-  return <div className="p-4">Staff View</div>;
-}
-
-function Visitor() {
-  return <div className="p-4">Visitor View</div>;
-}
+import { DashboardPage } from "./pages/Dashboard/DashboardPage";
+import { StaffPage } from "./pages/Staff/StaffPage";
+import { VisitorPage } from "./pages/Visitor/VisitorPage";
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/staff" element={<Staff />} />
-        <Route path="/visitor" element={<Visitor />} />
+        <Route path="/" element={<DashboardPage />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/staff" element={<StaffPage />} />
+        <Route path="/visitor" element={<VisitorPage />} />
       </Routes>
     </BrowserRouter>
   );
